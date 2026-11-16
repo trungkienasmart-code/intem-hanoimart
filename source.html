@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống In Tem Giá - Hà Nội Mart</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    
+    <style>
+        :root {
+            --primary: #003399;
+            --danger: #e60000;
+            --bg: #f1f5f9;
+            --border: #cbd5e1;
+            /* BIẾN ĐỘ DÀY VIỀN ĐỎ (Sửa số 6px này để thay đổi) */
+            --border-thickness: 8px; 
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        body { background-color: var(--bg); color: #1e293b; display: flex; flex-direction: column; min-height: 100vh; user-select: none; }
+
+        /* HEADER & TOOLBAR */
+        .navbar { background: var(--primary); color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); flex-wrap: wrap; gap: 10px;}
+        .brand h1 { font-size: 18px; text-transform: uppercase; }
+        .brand p { font-size: 12px; color: #cbd5e1; }
+        
+        .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap;}
+        .btn { padding: 8px 15px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 13px; transition: 0.2s; }
+        .btn-upload { background: #f59e0b; color: white; }
+        .btn-upload:hover { background: #d97706; }
+        .btn-scan { background: #8b5cf6; color: white; }
+        .btn-scan:hover { background: #7c3aed; }
+        .btn-print { background: #16a34a; color: white; }
+        .btn-print:hover { background: #15803d; }
+        .btn-cloud { background: #0ea5e9; color: white; }
+        .btn-cloud:hover { background: #0284c7; }
+        
+        /* MODE SWITCH */
+        .mode-switch { display: flex; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3);}
+        .mode-btn { background: transparent; color: #cbd5e1; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .mode-btn.active { background: white; color: var(--primary); }
+
+        /* TABS */
+        .menu-tabs { display: flex; gap: 5px; background: rgba(255,255,255,0.2); padding: 4px; border-radius: 6px; flex-wrap: wrap; }
+        .tab-btn { background: transparent; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .tab-btn.active { background: white; color: var(--primary); }
+
+        /* WORKSPACE */
+        .workspace { display: flex; gap: 20px; padding: 15px; flex: 1; max-width: 1900px; margin: 0 auto; width: 100%; align-items: flex-start; }
+
+        /* LEFT PANEL: DATA TABLE */
+        .input-panel { flex: 1; min-width: 700px; max-width: 950px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid var(--border); overflow: hidden; position: sticky; top: 15px; }
+        .panel-header { padding: 12px 15px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; flex-wrap: wrap; gap: 10px;}
+        .panel-title { font-weight: bold; color: var(--primary); }
+        
+        .table-container { overflow-x: auto; max-height: calc(100vh - 250px); }
+        .input-table { width: 100%; border-collapse: collapse; }
+        .input-table th { background: #f1f5f9; padding: 8px; font-size: 12px; text-align: left; position: sticky; top: 0; border-bottom: 2px solid var(--border); z-index: 10; white-space: nowrap;}
+        .input-table td { padding: 6px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+        .cell-input { width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
+        .cell-input.price { color: var(--danger); font-weight: bold; text-align: right; }
+        .cell-input.qty { text-align: center; font-weight: bold; width: 50px; }
+        .cell-input.date-input { width: 110px; }
+        .cell-input.date-input.error { border-color: var(--danger); background-color: #fee2e2; }
+        
+        .chk-box { width: 18px; height: 18px; cursor: pointer; }
+        .icon-btn { border: 1px solid var(--border); background: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .icon-btn:hover { background: #f1f5f9; }
+
+        /* BULK DATE */
+        .bulk-date-bar { display: flex; align-items: center; gap: 10px; padding: 8px 15px; background: #eff6ff; border-bottom: 1px solid var(--border); font-size: 13px; }
+        .bulk-date-bar input { padding: 5px; border: 1px solid var(--border); border-radius: 4px; }
+
+        /* RIGHT PANEL: A4 PREVIEW */
+        .preview-wrapper { flex: 1.2; display: flex; flex-direction: column; align-items: center; overflow-x: auto; max-width: 100%; }
+        
+        /* PAGINATION CONTROLS */
+        .pagination { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; background: white; padding: 8px 20px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .page-btn { background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .page-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+        .page-info { font-weight: bold; font-size: 14px; color: var(--primary); }
+
+        /* A4 PAGE SETUP - PORTRAIT */
+        .a4-page { background: white; box-shadow: 0 5px 20px rgba(0,0,0,0.15); display: none; }
+        .a4-page.active { display: grid; }
+        
+        .a4-page.normal-page { width: 210mm; height: 297mm; padding: 5mm 10mm; grid-template-columns: repeat(2, 80mm); grid-template-rows: repeat(6, 40mm); column-gap: 16mm; row-gap: 4mm; justify-content: center; align-content: center;}
+
+        /* A4 PAGE SETUP - LANDSCAPE */
+        .a4-page.landscape-page { width: 297mm; height: 210mm; padding: 10mm 15mm; }
+        .a4-page.promo-tag-page { grid-template-columns: repeat(2, 110mm); grid-template-rows: repeat(3, 60mm); column-gap: 10mm; row-gap: 6mm; justify-content: center; align-content: center; }
+        .a4-page.a5-sheet-page { grid-template-columns: repeat(2, 148mm); grid-template-rows: repeat(1, 210mm); column-gap: 1mm; justify-content: center; align-content: center; }
+
+        /* ================= NORMAL TEM DESIGN (80x40) ================= */
+        .price-tag { width: 80mm; height: 40mm; border: 1.5px solid #000000; display: flex; flex-direction: column; padding: 1.5mm 2mm; position: relative; page-break-inside: avoid; overflow: hidden; }
+        .price-tag.empty { border: 1px dashed #cbd5e1; opacity: 0.3; }
+        .tag-header { display: flex; align-items: center; gap: 1.5mm; margin-bottom: 1mm; height: 8mm; }
+        .tag-logo { width: 8mm; height: 8mm; object-fit: contain; flex-shrink: 0; }
+        .tag-name { flex: 1; font-size: 10.5pt; font-weight: bold; line-height: 1.05; text-transform: uppercase; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .tag-body { flex: 1; display: flex; align-items: stretch; height: calc(100% - 9mm); }
+        .tag-body-left { width: 65%; display: flex; justify-content: flex-end; align-items: center; padding-right: 1mm; overflow: hidden; }
+        .price-main { font-size: 63.8pt; font-weight: 900; color: var(--danger); line-height: 0.75; letter-spacing: -2px; white-space: nowrap; }
+        .tag-body-right { width: 35%; display: flex; flex-direction: column; justify-content: space-between; padding-left: 1.5mm; border-left: 1px dashed #e2e8f0; }
+        .price-top { display: flex; align-items: baseline; justify-content: center; gap: 0.5mm; margin-top: 0.5mm; }
+        .price-dec { font-size: 14pt; font-weight: bold; color: var(--danger); line-height: 1; }
+        .tag-unit { font-size: 11pt; font-weight: bold; color: #333; }
+        .barcode-area { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; width: 100%; margin-top: 1mm;}
+        .barcode-area svg { height: 9mm; width: 100%; max-width: 100%; object-fit: contain; }
+        .barcode-text { font-size: 7.5pt; font-family: monospace; margin-top: 0.5mm; color: #000; text-align: center; width: 100%; font-weight: bold; }
+
+                /* ================= PROMO TAG 6x11 (110x60mm) ================= */
+        .promo-tag { 
+            width: 110mm; 
+            height: 60mm; 
+            border: var(--border-thickness) solid var(--danger); 
+            border-radius: 4mm; 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+            page-break-inside: avoid; 
+            /* BỎ overflow: hidden để khung không bị cắt */
+            overflow: visible; 
+            background: #fff;
+            padding-top: 8mm; /* Đẩy nội dung xuống để nhường chỗ cho header */
+        }
+        .promo-tag.empty { border: 1px dashed #cbd5e1; opacity: 0.3; }
+        
+        /* Khung Giá Đặc Biệt nổi lên trên viền */
+        .promo-header-wrapper {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Căn giữa và kéo lên 50% chiều cao */
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .promo-header {
+            background-color: var(--danger);
+            color: white;
+            border-radius: 20px; /* Bo tròn đều 2 góc */
+            padding: 4px 20px;
+            width: max-content;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Tên sản phẩm cho Tem 6x11 */
+        .promo-name { 
+            font-size: 11pt; 
+            font-weight: bold; 
+            text-align: center; 
+            text-transform: uppercase; 
+            display: -webkit-box; 
+            -webkit-line-clamp: 2; 
+            -webkit-box-orient: vertical; 
+            overflow: hidden; 
+            line-height: 1.3; 
+            margin: 0 3mm 1mm 3mm; 
+            height: 10mm;
+        }
+        
+        .promo-bottom { display: flex; flex: 1; padding: 0 2mm 2mm 3mm; align-items: center;}
+        .promo-col-thousands { width: 40mm; display: flex; justify-content: center; align-items: center; height: 100%;}
+        .promo-price-main { font-size: 66pt; font-weight: 900; color: var(--danger); line-height: 0.75; letter-spacing: -2px; }
+        .promo-col-hundreds { width: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; padding-bottom: 2mm;}
+        .promo-price-dec { font-size: 30pt; font-weight: bold; color: var(--danger); line-height: 1; margin-bottom: 1.5mm;}
+        .promo-old-price { font-size: 15pt; color: #64748b; text-decoration: line-through; font-weight: bold; margin-bottom: 0.5mm;}
+        .promo-unit { font-size: 15pt; color: #333; font-weight: bold; }
+        .promo-col-image { width: 35mm; display: flex; justify-content: center; align-items: flex-end; height: 100%; overflow: hidden;}
+        .promo-image { max-width: 90%; max-height: 90%; object-fit: contain; }
+        .promo-footer { position: absolute; bottom: 1.5mm; left: 3mm; font-size: 8.5pt; font-style: italic; color: #333; font-weight: bold; }
+
+        /* ================= A5 SHEET (140x190mm) ================= */
+        .a5-sheet { 
+            width: 140mm; 
+            height: 190mm; 
+            border: var(--border-thickness) solid var(--danger); 
+            border-radius: 5mm; 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+            page-break-inside: avoid; 
+            /* BỎ overflow: hidden */
+            overflow: visible; 
+            padding: 12mm 5mm 4mm 5mm; /* Tăng padding-top lên 12mm */
+            background: #fff; 
+            margin: 0 auto;
+        }
+        .a5-sheet.empty { border: 1px dashed #cbd5e1; opacity: 0.3; }
+        
+        .a5-header-wrapper {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+        }
+
+        .a5-header {
+            background-color: var(--danger);
+            color: white;
+            border-radius: 30px;
+            padding: 5px 30px;
+            width: max-content;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+			align-items: center;
+        }
+
+        /* Tên sản phẩm cho A5 */
+        .a5-name { 
+            text-align: center; 
+            font-size: 16pt; 
+            font-weight: bold; 
+            margin-bottom: 3mm; 
+            display: -webkit-box; 
+            -webkit-line-clamp: 2; 
+            -webkit-box-orient: vertical; 
+            overflow: hidden; 
+            text-transform: uppercase; 
+            line-height: 1.35;
+            height: 18mm; /* Cố định chiều cao cho 2 dòng */
+			padding-top: 2px;
+        }
+
+        .a5-price-section { display: flex; align-items: stretch; height: 50mm; margin-bottom: 2mm;}
+        .a5-price-left { width: 65%; display: flex; justify-content: flex-end; align-items: center; padding-right: 2mm;}
+        .a5-price-main { font-size: 105pt; font-weight: 900; color: var(--danger); line-height: 0.75; letter-spacing: -2px; white-space: nowrap; }
+        .a5-price-right { width: 35%; display: flex; flex-direction: column; justify-content: center; align-items: center; border-left: 1px dashed #cbd5e1; padding-left: 2mm;}
+        .a5-price-dec { font-size: 35pt; font-weight: bold; color: var(--danger); line-height: 1; margin-bottom: 2mm;}
+        .a5-old-price { font-size: 25pt; color: #333; text-decoration: line-through; font-weight: bold; margin-bottom: 1mm;}
+        .a5-unit { font-size: 25pt; color: #333; font-weight: bold; }
+        
+        .a5-image-area { width: 100%; height: 75mm; display: flex; justify-content: center; align-items: center; margin-bottom: 2mm; overflow: hidden;}
+        .a5-image-area img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        .a5-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; border-top: 1px dashed #cbd5e1; padding-top: 2mm; height: 20mm;}
+        .a5-date { font-size: 11pt; font-style: italic; color: #333; font-weight: bold; }
+        .a5-barcode { text-align: right; }
+        .a5-barcode svg { height: 12mm; width: 50mm; }
+        .a5-barcode-text { font-size: 9pt; font-family: monospace; text-align: center; letter-spacing: 1px;}
+
+        /* ================= BLACK & WHITE MODE ================= */
+        body.bw-mode .price-tag, body.bw-mode .promo-tag, body.bw-mode .a5-sheet { border-color: #000000; }
+        body.bw-mode .price-main, body.bw-mode .price-dec, body.bw-mode .promo-price-main, body.bw-mode .promo-price-dec, body.bw-mode .a5-price-main, body.bw-mode .a5-price-dec { color: #000000; }
+        body.bw-mode .promo-header, body.bw-mode .a5-header { color: #000; }
+
+        /* ================= MODAL CAMERA ================= */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .camera-container { background: white; width: 90%; max-width: 500px; border-radius: 10px; overflow: hidden; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .camera-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; }
+        .scanned-list { max-height: 150px; overflow-y: auto; border: 1px solid var(--border); border-radius: 5px; padding: 5px; font-size: 13px; font-family: monospace;}
+        .scanned-item { padding: 5px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;}
+        .scanned-item:last-child { border-bottom: none; }
+        .btn-close { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;}
+
+        /* PRINT MEDIA */
+		@page { margin: 0mm !important; }
+		@media print {
+			html, body { background: white; margin: 0 !important; padding: 0 !important; height: auto !important; min-height: 0 !important; }
+			.navbar, .input-panel, .pagination, .preview-banner, .modal-overlay { display: none !important; }
+			.workspace, .preview-wrapper { padding: 0 !important; margin: 0 !important; display: block !important; width: 100% !important; overflow: visible !important; }
+			#a4Container { display: block !important; gap: 0 !important; margin: 0 !important; padding: 0 !important; }
+			
+            .a4-page { 
+				box-shadow: none !important; 
+				margin: 0 auto !important; 
+				display: grid !important; 
+				page-break-after: always !important; 
+				break-after: page !important;
+				page-break-inside: avoid !important;
+				break-inside: avoid !important;
+                zoom: 1 !important; 
+			}
+            .a4-page.normal-page { width: 210mm !important; height: 285mm !important; padding: 8mm 12mm !important; }
+            .a4-page.landscape-page { width: 297mm !important; height: 208mm !important; padding: 10mm 15mm !important; }
+            
+			.a4-page:last-child { page-break-after: auto !important; break-after: auto !important; }
+			.price-tag.empty, .promo-tag.empty, .a5-sheet.empty { border: none !important; }
+		}
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="navbar">
+        <div class="brand">
+            <h1>Hệ Thống In Tem Giá - Hà Nội Mart</h1>
+            <p>Phiên bản Cloud</p>
+        </div>
+        
+        <div class="menu-tabs">
+            <button class="tab-btn active" id="tabNormal" onclick="switchMenu('normal')">📦 Tem Thường</button>
+            <button class="tab-btn" id="tabPromoTag" onclick="switchMenu('promoTag')">🔥 Tem KM (6x10)</button>
+            <button class="tab-btn" id="tabA5Sheet" onclick="switchMenu('a5Sheet')">📄 Bảng Giá KM (A5)</button>
+            <button class="tab-btn" id="tabPrintList" onclick="switchMenu('printList')" style="background: #f59e0b; color: white;">📋 Danh sách in</button>
+        </div>
+
+        <div class="toolbar">
+            <div class="mode-switch">
+                <button class="mode-btn active" id="btnColor" onclick="setPrintMode('color')">🎨 In Màu</button>
+                <button class="mode-btn" id="btnBW" onclick="setPrintMode('bw')">🖨️ Trắng Đen</button>
+            </div>
+            
+            <button class="btn btn-scan" onclick="openScanner()">📷 Quét mã</button>
+            <input type="file" id="excelUpload" accept=".xlsx, .xls" style="display: none;" onchange="handleLocalExcelUpload(event)">
+            <button class="btn btn-upload" id="btnUpload" onclick="document.getElementById('excelUpload').click()">📥 Tải Excel (Offline)</button>
+            
+            <button class="btn btn-print" onclick="window.print()">🖨️ In Tất Cả Trang</button>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="workspace">
+        
+        <!-- LEFT: BẢNG NHẬP LIỆU -->
+        <section class="input-panel" id="inputPanel">
+            <div class="panel-header">
+                <div class="panel-title" id="panelTitle">Danh sách sản phẩm</div>
+                <div style="display:flex; gap: 5px;">
+                    <!-- Nút dành riêng cho tab Danh sách in -->
+                    <div id="cloudActions" style="display: none; gap: 5px;">
+                        <button class="icon-btn" style="background:#0ea5e9; color:white; border:none;" onclick="uploadCloudData()">☁️ Upload Data</button>
+                        <button class="icon-btn" style="background:#10b981; color:white; border:none;" onclick="fetchCloudScans()">🔄 Lấy DS Quét</button>
+                        <button class="icon-btn" style="background:#f59e0b; color:white; border:none;" onclick="createNewPrintList()">➕ Tạo DS Mới</button>
+                    </div>
+                    <!-- Nút mặc định cho các tab in -->
+                    <div id="normalActions" style="display: flex; gap: 5px;">
+                        <button class="icon-btn" onclick="toggleSelectAll(true)">Chọn tất cả</button>
+                        <button class="icon-btn" onclick="toggleSelectAll(false)">Bỏ chọn</button>
+                        <button class="icon-btn" onclick="clearAllData()">Xóa hết</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bulk-date-bar" id="bulkDateBar" style="display: none;">
+                <span>Áp dụng ngày cho tất cả:</span>
+                <input type="date" id="bulkDateInput">
+                <button class="icon-btn" onclick="applyBulkDate()">Áp dụng</button>
+            </div>
+
+            <div class="table-container" id="tableContainer">
+                <table class="input-table" id="inputTable">
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            
+            <!-- Thanh chuyển đổi dữ liệu (Chỉ hiện ở tab Danh sách in) -->
+            <div id="transferBar" style="display: none; padding: 10px; background: #f8fafc; border-top: 1px solid var(--border); gap: 10px; justify-content: center;">
+                <button class="btn btn-print" onclick="transferData('normal')">➡️ In Tem Thường</button>
+                <button class="btn btn-print" onclick="transferData('promoTag')" style="background:var(--danger);">➡️ In Tem KM (6x10)</button>
+                <button class="btn btn-print" onclick="transferData('a5Sheet')" style="background:var(--primary);">➡️ In Bảng A5</button>
+            </div>
+        </section>
+
+        <!-- RIGHT: A4 PREVIEW -->
+        <section class="preview-wrapper" id="previewWrapper">
+            <div class="pagination">
+                <button class="page-btn" id="btnPrev" onclick="changePage(-1)">❮ Trang Trước</button>
+                <span class="page-info" id="pageInfo">Trang 1 / 1</span>
+                <button class="page-btn" id="btnNext" onclick="changePage(1)">Trang Sau ❯</button>
+            </div>
+            <div id="previewContainer" style="width: 100%; height: calc(100vh - 180px); overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 20px;">
+                <div id="a4Container" style="display: flex; flex-direction: column; gap: 20px; transform-origin: top center; transition: transform 0.2s;"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL QUÉT MÃ VẠCH -->
+    <div class="modal-overlay" id="scannerModal">
+        <div class="camera-container">
+            <div class="camera-header">
+                <span>QUÉT MÃ VẠCH</span>
+                <button class="btn-close" onclick="closeScanner()">Đóng</button>
+            </div>
+            <div id="reader"></div>
+            <div style="font-size: 12px; color: #64748b; text-align: center;">Đưa mã vạch vào khung hình. Chờ 3s giữa các lần quét.</div>
+            
+            <input type="text" id="scanFilename" class="cell-input" placeholder="Nhập tên đợt quét / Tên file..." style="margin-top: 5px;">
+            
+            <div class="scanned-list" id="scannedList" style="margin-top: 5px;">
+                <div style="text-align:center; color:#94a3b8; font-style:italic;">Chưa có mã nào được quét.</div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap;">
+                <button class="btn btn-cloud" style="flex: 1; justify-content: center;" onclick="saveScansToCloud()">☁️ Lưu Cloud</button>
+                <button class="btn btn-upload" style="flex: 1; justify-content: center;" onclick="exportCSV()">💾 Lưu (.csv)</button>
+                <button class="btn btn-print" style="flex: 1; justify-content: center; background: #64748b;" onclick="clearScannedList()">🗑️ Xóa</button>
+            </div>
+        </div>
+    </div>
+
+    <script id="app-core-script">
+        // ================= CẤU HÌNH CLOUD (BẠN SỬA Ở ĐÂY) =================
+        // 1. Dán link Web App URL của Google Apps Script vào đây
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw68zOK-P7f4JuzytJL6kJJ2TbWWWbiTndOdT-QRM7fOGyry8-FsTG-wH6YuIE-Xi8/exec";
+        
+        // 2. Mã bảo mật (Phải giống hệt mã SECRET_KEY trong file Apps Script)
+        const SECRET_KEY = "HanoiMart_Secret_2026";
+        // ===================================================================
+
+        const HN_MART_LOGO = "GẮN_MÃ_LOGO_VÀO_ĐÂY"; // Bạn dán mã Base64 logo vào đây
+
+        // State Management
+        let currentMenu = 'normal';
+        let printMode = 'color';
+        let currentPage = 1;
+        let itemsPerPage = 12; 
+
+        let products = []; // Dữ liệu cho các tab in
+        let printListData = []; // Dữ liệu riêng cho tab Danh sách in
+        let globalProducts = []; // Cache dữ liệu từ Cloud để tra cứu mã vạch
+
+        let pastedImageCount = 0;
+        const MAX_PASTED_IMAGES = 10;
+        const MAX_IMAGE_SIZE_KB = 2000;
+
+        // Scanner Data
+        let scannedBarcodes = [];
+        let html5QrCode = null;
+        let isScanningLocked = false;
+
+        function initEmptyProduct() {
+            return {
+                id: Date.now() + Math.random().toString(36).substr(2, 9),
+                checked: true,
+                name: '',
+                price: 0,
+                unit: 'Hộp',
+                barcode: '',
+                quantity: 1,
+                imageUrl: '',
+                promoPrice: 0,
+                applyDate: '',
+                isPastedImage: false
+            };
+        }
+
+        function switchMenu(menu) {
+            currentMenu = menu;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Ẩn/Hiện các thanh công cụ
+            document.getElementById('cloudActions').style.display = menu === 'printList' ? 'flex' : 'none';
+            document.getElementById('normalActions').style.display = menu === 'printList' ? 'none' : 'flex';
+            document.getElementById('transferBar').style.display = menu === 'printList' ? 'flex' : 'none';
+            document.getElementById('bulkDateBar').style.display = (menu === 'promoTag' || menu === 'a5Sheet') ? 'flex' : 'none';
+            document.getElementById('previewWrapper').style.display = menu === 'printList' ? 'none' : 'flex';
+
+            if (menu === 'normal') {
+                document.getElementById('tabNormal').classList.add('active');
+                document.getElementById('panelTitle').innerText = "Danh sách sản phẩm - Tem Thường";
+                itemsPerPage = 12;
+            } else if (menu === 'promoTag') {
+                document.getElementById('tabPromoTag').classList.add('active');
+                document.getElementById('panelTitle').innerText = "Danh sách sản phẩm - Tem KM (6x10)";
+                itemsPerPage = 6;
+            } else if (menu === 'a5Sheet') {
+                document.getElementById('tabA5Sheet').classList.add('active');
+                document.getElementById('panelTitle').innerText = "Danh sách sản phẩm - Bảng Giá KM (A5)";
+                itemsPerPage = 2;
+            } else if (menu === 'printList') {
+                document.getElementById('tabPrintList').classList.add('active');
+                document.getElementById('panelTitle').innerText = "Danh sách quét / Danh sách in";
+            }
+            
+            currentPage = 1;
+            renderTable();
+            if(menu !== 'printList') {
+                renderPreview();
+                applyZoom();
+            }
+        }
+
+        function applyZoom() {
+            const container = document.getElementById('a4Container');
+            const wrapper = document.getElementById('previewContainer');
+            if (!container || !wrapper) return;
+            
+            setTimeout(() => {
+                if (currentMenu === 'normal') {
+                    container.style.transform = `scale(0.9)`;
+                } else if (currentMenu === 'promoTag' || currentMenu === 'a5Sheet') {
+                    const wrapperWidth = wrapper.clientWidth;
+                    const pageWidthPx = 297 * 3.7795275591;
+                    let scale = (wrapperWidth - 40) / pageWidthPx;
+                    if (scale > 1) scale = 1; 
+                    container.style.transform = `scale(${scale})`;
+                }
+            }, 50);
+        }
+        window.addEventListener('resize', applyZoom);
+
+        function setPrintMode(mode) {
+            printMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            if (mode === 'color') {
+                document.getElementById('btnColor').classList.add('active');
+                document.body.classList.remove('bw-mode');
+            } else {
+                document.getElementById('btnBW').classList.add('active');
+                document.body.classList.add('bw-mode');
+            }
+        }
+
+        function formatPrice(price) {
+            if (!price) return '0';
+            return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+
+        function splitPrice(price) {
+            if (!price) return { thousands: '0', hundreds: '000' };
+            let p = parseInt(price);
+            let thousands = Math.floor(p / 1000);
+            let hundreds = p % 1000;
+            return {
+                thousands: thousands.toString(),
+                hundreds: hundreds.toString().padStart(3, '0')
+            };
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+        }
+
+        // ================= RENDER TABLE =================
+        function renderTable() {
+            const thead = document.getElementById('tableHead');
+            const tbody = document.getElementById('tableBody');
+            
+            if (currentMenu === 'printList') {
+                renderPrintListTable(thead, tbody);
+                return;
+            }
+
+            let headerHtml = `
+                <tr>
+                    <th width="30"><input type="checkbox" class="chk-box" onchange="toggleSelectAll(this.checked)"></th>
+                    <th width="220">Tên sản phẩm</th>
+                    <th width="100">Giá thường</th>
+                    <th width="60">ĐVT</th>
+                    <th width="120">Mã vạch</th>
+                    <th width="50">SL</th>
+            `;
+            
+            if (currentMenu === 'promoTag' || currentMenu === 'a5Sheet') {
+                headerHtml += `
+                    <th width="100">Giá KM</th>
+                    <th width="60">Giảm (%)</th>
+                    <th width="120">Link Ảnh</th>
+                    <th width="130">Ngày áp dụng</th>
+                `;
+            }
+            
+            headerHtml += `<th width="40"></th></tr>`;
+            thead.innerHTML = headerHtml;
+
+            tbody.innerHTML = products.map((p, index) => {
+                let rowHtml = `
+                    <tr data-index="${index}">
+                        <td><input type="checkbox" class="chk-box" ${p.checked ? 'checked' : ''} onchange="updateProduct(${index}, 'checked', this.checked)"></td>
+                        <td><input type="text" class="cell-input" value="${p.name}" onchange="updateProduct(${index}, 'name', this.value)" placeholder="Tên SP..."></td>
+                        <td><input type="number" class="cell-input price" value="${p.price}" onchange="updateProduct(${index}, 'price', this.value)" placeholder="0"></td>
+                        <td><input type="text" class="cell-input" value="${p.unit}" onchange="updateProduct(${index}, 'unit', this.value)" placeholder="Hộp"></td>
+                        <td><input type="text" class="cell-input" value="${p.barcode}" onchange="updateProduct(${index}, 'barcode', this.value)" placeholder="Mã vạch..."></td>
+                        <td><input type="number" class="cell-input qty" value="${p.quantity}" onchange="updateProduct(${index}, 'quantity', this.value)" min="1"></td>
+                `;
+                
+                if (currentMenu === 'promoTag' || currentMenu === 'a5Sheet') {
+                    const discount = p.price > 0 && p.promoPrice > 0 && p.price > p.promoPrice ? Math.ceil(((p.price - p.promoPrice) / p.price) * 100) : 0;
+                    const isDateError = !p.applyDate ? 'error' : '';
+                    rowHtml += `
+                        <td><input type="number" class="cell-input price" value="${p.promoPrice}" onchange="updateProduct(${index}, 'promoPrice', this.value)" placeholder="0"></td>
+                        <td><div style="text-align:center; font-weight:bold; color:${discount>0?'var(--danger)':'#64748b'}">${discount}%</div></td>
+                        <td>
+                            <input type="text" class="cell-input" value="${p.imageUrl}" onchange="updateProduct(${index}, 'imageUrl', this.value)" placeholder="Link ảnh..." style="font-size:10px;">
+                        </td>
+                        <td>
+                            <input type="date" class="cell-input date-input ${isDateError}" value="${p.applyDate}" onchange="updateProduct(${index}, 'applyDate', this.value)">
+                        </td>
+                    `;
+                }
+                
+                rowHtml += `<td><button class="icon-btn" onclick="removeProduct(${index})">❌</button></td></tr>`;
+                return rowHtml;
+            }).join('');
+
+            tbody.innerHTML += `
+                <tr>
+                    <td colspan="${(currentMenu === 'promoTag' || currentMenu === 'a5Sheet') ? 11 : 7}" style="text-align:center; padding: 10px;">
+                        <button class="btn btn-upload" style="margin: 0 auto;" onclick="addNewRow()">➕ Thêm Dòng Mới</button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function updateProduct(index, field, value) {
+            if (field === 'price' || field === 'promoPrice' || field === 'quantity') {
+                value = parseInt(value) || 0;
+            }
+            products[index][field] = value;
+            
+            if (field === 'price' || field === 'promoPrice') {
+                renderTable();
+            }
+            renderPreview();
+        }
+
+        function removeProduct(index) {
+            const p = products[index];
+            if (p.isPastedImage) pastedImageCount--;
+            products.splice(index, 1);
+            if (products.length === 0) addNewRow();
+            renderTable();
+            renderPreview();
+        }
+
+        function addNewRow() {
+            products.push(initEmptyProduct());
+            renderTable();
+            renderPreview();
+        }
+
+        function clearAllData() {
+            if (confirm("Bạn có chắc chắn muốn xóa toàn bộ dữ liệu?")) {
+                products = [initEmptyProduct()];
+                pastedImageCount = 0;
+                renderTable();
+                renderPreview();
+            }
+        }
+
+        function toggleSelectAll(checked) {
+            products.forEach(p => p.checked = checked);
+            renderTable();
+            renderPreview();
+        }
+
+        function applyBulkDate() {
+            const dateVal = document.getElementById('bulkDateInput').value;
+            if (!dateVal) return alert("Vui lòng chọn ngày!");
+            products.forEach(p => p.applyDate = dateVal);
+            renderTable();
+            renderPreview();
+        }
+
+        // ================= XỬ LÝ TAB DANH SÁCH IN =================
+        function renderPrintListTable(thead, tbody) {
+            let headerHtml = `
+                <tr>
+                    <th width="30"><input type="checkbox" class="chk-box" onchange="toggleSelectPrintList(this.checked)"></th>
+                    <th width="150">Tên File / Đợt quét</th>
+                    <th width="120">Ngày giờ</th>
+                    <th width="120">Mã vạch</th>
+                    <th width="200">Tên hàng</th>
+                    <th width="80">Giá thường</th>
+                    <th width="80">Giá KM</th>
+                    <th width="60">ĐVT</th>
+                    <th width="40"></th>
+                </tr>
+            `;
+            thead.innerHTML = headerHtml;
+
+            if (printListData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px; color:#64748b;">Chưa có dữ liệu. Hãy bấm "Lấy DS Quét" hoặc "Tạo DS Mới".</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = printListData.map((p, index) => {
+                const isNotFound = p.name === "Không tìm thấy";
+                return `
+                    <tr data-index="${index}">
+                        <td><input type="checkbox" class="chk-box" ${p.checked ? 'checked' : ''} onchange="updatePrintList(${index}, 'checked', this.checked)"></td>
+                        <td>${p.filename || 'Nhập tay'}</td>
+                        <td style="font-size:11px;">${p.timestamp ? new Date(p.timestamp).toLocaleString('vi-VN') : ''}</td>
+                        <td><input type="text" class="cell-input" value="${p.barcode}" onchange="updatePrintList(${index}, 'barcode', this.value)"></td>
+                        <td>
+                            <input type="text" class="cell-input" value="${p.name}" onchange="updatePrintList(${index}, 'name', this.value)" placeholder="${isNotFound ? 'Không tìm thấy' : ''}" style="${isNotFound ? 'color:red; font-weight:bold;' : ''}">
+                        </td>
+                        <td><input type="number" class="cell-input price" value="${p.price}" onchange="updatePrintList(${index}, 'price', this.value)"></td>
+                        <td><input type="number" class="cell-input price" value="${p.promoPrice}" onchange="updatePrintList(${index}, 'promoPrice', this.value)"></td>
+                        <td><input type="text" class="cell-input" value="${p.unit}" onchange="updatePrintList(${index}, 'unit', this.value)"></td>
+                        <td><button class="icon-btn" onclick="removePrintListItem(${index})">❌</button></td>
+                    </tr>
+                `;
+            }).join('');
+
+            tbody.innerHTML += `
+                <tr>
+                    <td colspan="9" style="text-align:center; padding: 10px;">
+                        <button class="btn btn-upload" style="margin: 0 auto;" onclick="addNewPrintListItem()">➕ Thêm Dòng Mới</button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function updatePrintList(index, field, value) {
+            if (field === 'price' || field === 'promoPrice') value = parseInt(value) || 0;
+            printListData[index][field] = value;
+            
+            // Nếu sửa mã vạch, thử tra cứu lại tự động
+            if (field === 'barcode') {
+                const found = globalProducts.find(p => p.barcode === value.trim());
+                if (found) {
+                    printListData[index].name = found.name;
+                    printListData[index].price = found.price;
+                    printListData[index].promoPrice = found.promoPrice;
+                    printListData[index].unit = found.unit;
+                    printListData[index].imageUrl = found.imageUrl;
+                }
+                renderTable();
+            }
+        }
+
+        function removePrintListItem(index) {
+            printListData.splice(index, 1);
+            renderTable();
+        }
+
+        function addNewPrintListItem() {
+            printListData.push({
+                id: Date.now() + Math.random().toString(),
+                checked: true,
+                filename: 'Nhập tay',
+                timestamp: new Date().toISOString(),
+                barcode: '',
+                name: '',
+                price: 0,
+                promoPrice: 0,
+                unit: '',
+                imageUrl: ''
+            });
+            renderTable();
+        }
+
+        function toggleSelectPrintList(checked) {
+            printListData.forEach(p => p.checked = checked);
+            renderTable();
+        }
+
+        function createNewPrintList() {
+            if(confirm("Tạo danh sách in mới? Dữ liệu hiện tại trên bảng sẽ bị xóa.")) {
+                printListData = [];
+                addNewPrintListItem();
+            }
+        }
+
+        // Chuyển dữ liệu sang tab in
+        function transferData(targetMenu) {
+            const selected = printListData.filter(p => p.checked && p.barcode);
+            if (selected.length === 0) return alert("Vui lòng chọn ít nhất 1 sản phẩm có mã vạch!");
+
+            // Gộp các mã trùng nhau
+            const mergedMap = {};
+            selected.forEach(p => {
+                if (mergedMap[p.barcode]) {
+                    mergedMap[p.barcode].quantity += 1;
+                } else {
+                    mergedMap[p.barcode] = {
+                        ...initEmptyProduct(),
+                        barcode: p.barcode,
+                        name: p.name === "Không tìm thấy" ? "" : p.name,
+                        price: p.price,
+                        promoPrice: p.promoPrice,
+                        unit: p.unit,
+                        imageUrl: p.imageUrl,
+                        quantity: 1
+                    };
+                }
+            });
+
+            products = Object.values(mergedMap);
+            switchMenu(targetMenu);
+            alert(`Đã chuyển ${products.length} sản phẩm sang tab in.`);
+        }
+
+        // ================= UPLOAD EXCEL LOCAL =================
+        function handleLocalExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+                
+                if (rows.length <= 1) return alert("File Excel không có dữ liệu!");
+
+                const headers = rows[0].map(h => h ? h.toString().toLowerCase() : '');
+                let idx = { name: -1, unit: -1, price: -1, image: -1, barcode: -1, promo: -1 };
+                
+                headers.forEach((h, i) => {
+                    if (h.includes('tên hàng') || h === 'tên sản phẩm') idx.name = i;
+                    if (h.includes('đvt') && !h.includes('lớn') && idx.unit === -1) idx.unit = i;
+                    if (h.includes('giá bán') && idx.price === -1) idx.price = i; 
+                    else if (h.includes('giá bán km') || h.includes('giá khuyến mại')) idx.promo = i; 
+                    if (h.includes('hình ảnh')) idx.image = i;
+                    if (h.includes('mã hàng') || h.includes('mã vạch') || h.includes('barcode')) idx.barcode = i;
+                });
+
+                if (idx.name === -1) idx.name = 1;
+                if (idx.unit === -1) idx.unit = 3;
+                if (idx.price === -1) idx.price = 7;
+                if (idx.image === -1) idx.image = 12;
+                if (idx.barcode === -1) idx.barcode = 0;
+                if (idx.promo === -1) idx.promo = 26; 
+
+                let newProducts = [];
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.length === 0) continue;
+
+                    let p = initEmptyProduct();
+                    p.name = row[idx.name] || '';
+                    let rawBarcode = row[idx.barcode] || '';
+                    p.barcode = rawBarcode.toString().split(',')[0].trim(); 
+                    p.unit = row[idx.unit] || 'Hộp';
+                    p.price = parseInt(row[idx.price]) || 0;
+                    p.imageUrl = row[idx.image] || '';
+                    p.promoPrice = parseInt(row[idx.promo]) || 0;
+                    p.applyDate = ''; 
+
+                    if (p.name) newProducts.push(p);
+                }
+
+                if (newProducts.length > 0) {
+                    products = newProducts;
+                    renderTable();
+                    renderPreview();
+                    alert(`Đã tải lên thành công ${newProducts.length} sản phẩm.`);
+                } else {
+                    alert("Không tìm thấy dữ liệu hợp lệ trong file Excel.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = ''; // Reset input
+        }
+
+        // ================= UPLOAD EXCEL TO CLOUD =================
+        function uploadCloudData() {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.xlsx, .xls';
+            fileInput.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async function(evt) {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    // Lấy toàn bộ dạng mảng (không dùng header:1 để giữ nguyên object keys)
+                    const rows = XLSX.utils.sheet_to_json(firstSheet, {header: 1, defval: ""});
+                    
+                    if (rows.length <= 1) return alert("File Excel không có dữ liệu!");
+
+                    // Chuẩn bị mảng data gửi lên (Bắt đầu từ dòng 2, tức index 1)
+                    const payloadData = rows.slice(1);
+
+                    if(!confirm(`Bạn có chắc muốn đẩy ${payloadData.length} dòng dữ liệu này lên Cloud (Google Sheet)?`)) return;
+
+                    try {
+                        const response = await fetch(WEB_APP_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Dùng text/plain để tránh CORS preflight
+                            body: JSON.stringify({
+                                action: "upload_products",
+                                secret: SECRET_KEY,
+                                data: payloadData
+                            })
+                        });
+                        const result = await response.json();
+                        alert(result.message || "Upload thành công!");
+                        fetchCloudProducts(); // Cập nhật lại cache global
+                    } catch (err) {
+                        alert("Lỗi kết nối Cloud: " + err.toString());
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            };
+            fileInput.click();
+        }
+
+        // ================= CLOUD API FETCH =================
+        async function fetchCloudProducts() {
+            try {
+                const res = await fetch(`${WEB_APP_URL}?action=get_products&secret=${SECRET_KEY}`);
+                const json = await res.json();
+                if (json.status === "success") {
+                    // Map dữ liệu mảng 2 chiều thành object
+                    globalProducts = json.data.map(row => {
+                        let rawBarcode = row[0] ? row[0].toString() : "";
+                        return {
+                            barcode: rawBarcode.split(',')[0].trim(),
+                            name: row[1] || "",
+                            unit: row[3] || "",
+                            price: parseInt(row[7]) || 0,
+                            imageUrl: row[12] || "",
+                            promoPrice: parseInt(row[26]) || 0 // Cột AA (index 26)
+                        };
+                    });
+                    console.log("Đã đồng bộ Database:", globalProducts.length, "sản phẩm.");
+                }
+            } catch (err) {
+                console.error("Lỗi lấy data sản phẩm:", err);
+            }
+        }
+
+        async function fetchCloudScans() {
+            if (!WEB_APP_URL || WEB_APP_URL === "PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
+                return alert("Chưa cấu hình WEB_APP_URL trong source code!");
+            }
+            if(globalProducts.length === 0) await fetchCloudProducts(); // Đảm bảo đã có data đối chiếu
+
+            try {
+                const res = await fetch(`${WEB_APP_URL}?action=get_scans&secret=${SECRET_KEY}`);
+                const json = await res.json();
+                
+                if (json.status === "success") {
+                    if (json.data.length === 0) return alert("Không có dữ liệu quét nào mới.");
+                    
+                    // Gộp nhóm theo Tên File và mã vạch
+                    const scanGroups = {};
+                    json.data.forEach(item => {
+                        const found = globalProducts.find(p => p.barcode === item.barcode);
+                        const key = item.filename + "_" + item.barcode;
+                        
+                        if (scanGroups[key]) {
+                            scanGroups[key].count += 1;
+                        } else {
+                            scanGroups[key] = {
+                                id: Date.now() + Math.random().toString(),
+                                checked: true,
+                                filename: item.filename,
+                                timestamp: item.timestamp,
+                                barcode: item.barcode,
+                                name: found ? found.name : "Không tìm thấy",
+                                price: found ? found.price : 0,
+                                promoPrice: found ? found.promoPrice : 0,
+                                unit: found ? found.unit : "",
+                                imageUrl: found ? found.imageUrl : "",
+                                count: 1
+                            };
+                        }
+                    });
+
+                    // Chuyển object thành mảng
+                    printListData = Object.values(scanGroups);
+                    renderTable();
+                    alert(`Đã lấy ${printListData.length} dòng dữ liệu quét.`);
+                } else {
+                    alert(json.message);
+                }
+            } catch (err) {
+                alert("Lỗi kết nối Cloud: " + err.toString());
+            }
+        }
+
+        // ================= RENDER PREVIEW =================
+        function renderPreview() {
+            if (currentMenu === 'printList') return;
+
+            const container = document.getElementById('a4Container');
+            container.innerHTML = '';
+            
+            const activeProducts = products.filter(p => p.checked);
+            
+            if (pastedImageCount > MAX_PASTED_IMAGES) {
+                alert(`Cảnh báo: Bạn đang có ${pastedImageCount} ảnh paste trực tiếp. Vui lòng giới hạn dưới ${MAX_PASTED_IMAGES} ảnh!`);
+            }
+
+            const totalPages = Math.ceil(activeProducts.length / itemsPerPage) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            document.getElementById('pageInfo').innerText = `Trang ${currentPage} / ${totalPages}`;
+            document.getElementById('btnPrev').disabled = currentPage === 1;
+            document.getElementById('btnNext').disabled = currentPage === totalPages;
+
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const pageProducts = activeProducts.slice(startIndex, startIndex + itemsPerPage);
+
+            const pageDiv = document.createElement('div');
+            pageDiv.className = `a4-page active ${currentMenu === 'normal' ? 'normal-page' : ''} ${currentMenu === 'promoTag' ? 'landscape-page promo-tag-page' : ''} ${currentMenu === 'a5Sheet' ? 'landscape-page a5-sheet-page' : ''}`;
+
+            for (let i = 0; i < itemsPerPage; i++) {
+                const p = pageProducts[i];
+                if (p) {
+                    if (currentMenu === 'normal') pageDiv.innerHTML += renderNormalTag(p);
+                    else if (currentMenu === 'promoTag') pageDiv.innerHTML += renderPromoTag(p);
+                    else if (currentMenu === 'a5Sheet') pageDiv.innerHTML += renderA5Sheet(p);
+                } else {
+                    if (currentMenu === 'normal') pageDiv.innerHTML += `<div class="price-tag empty"></div>`;
+                    else if (currentMenu === 'promoTag') pageDiv.innerHTML += `<div class="promo-tag empty"></div>`;
+                    else if (currentMenu === 'a5Sheet') pageDiv.innerHTML += `<div class="a5-sheet empty"></div>`;
+                }
+            }
+
+            container.appendChild(pageDiv);
+            
+                        // Sử dụng setTimeout để đảm bảo DOM đã render xong mới vẽ Barcode
+            setTimeout(() => {
+                // Tìm TẤT CẢ các thẻ svg có chứa data-barcode trong trang vừa render
+                const svgs = pageDiv.querySelectorAll('svg[data-barcode]');
+                svgs.forEach(svg => {
+                    try {
+                        JsBarcode(svg, svg.getAttribute('data-barcode'), {
+                            format: "CODE128",
+                            lineColor: "#000",
+                            width: 1.5,
+                            height: 30,
+                            displayValue: false
+                        });
+                    } catch(e) { console.error("Barcode error", e); }
+                });
+                applyZoom(); // Gọi lại zoom sau khi render
+            }, 100);
+        }
+
+        function renderNormalTag(p) {
+            const priceParts = splitPrice(p.price);
+            const logoHtml = HN_MART_LOGO.startsWith('data:image') ? `<img src="${HN_MART_LOGO}" class="tag-logo">` : '';
+            
+            let tagsHtml = '';
+            const qty = p.quantity || 1;
+            for(let q=0; q<qty; q++) {
+                // Tạo ID duy nhất cho từng tem để vẽ mã vạch không bị trùng
+                const uniqueId = `${p.id}-${q}`;
+                tagsHtml += `
+                    <div class="price-tag">
+                        <div class="tag-header">
+                            ${logoHtml}
+                            <div class="tag-name">${p.name || 'TÊN SẢN PHẨM'}</div>
+                        </div>
+                        <div class="tag-body">
+                            <div class="tag-body-left">
+                                <span class="price-main">${priceParts.thousands}</span>
+                            </div>
+                            <div class="tag-body-right">
+                                <div class="price-top">
+                                    <span class="price-dec">.${priceParts.hundreds}</span>
+                                    <span class="tag-unit">/${p.unit}</span>
+                                </div>
+                                <div class="barcode-area">
+                                    ${p.barcode ? `<svg data-barcode="${p.barcode}"></svg><div class="barcode-text">${p.barcode}</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            return tagsHtml;
+        }
+
+                function renderPromoTag(p) {
+            const promoParts = splitPrice(p.promoPrice);
+            const dateStr = formatDate(p.applyDate);
+            
+            return `
+                <div class="promo-tag">
+                    <div class="promo-header-wrapper">
+                        <div class="promo-header">
+                            <!-- Tăng viewBox lên 40, hạ tọa độ Q xuống 5 và 32 -->
+                            <svg viewBox="0 0 180 40" style="width: 140px; height: 28px; overflow: visible;">
+                                <path id="curve-promo" d="M 5,32 Q 90,5 175,32" fill="transparent" />
+                                <text style="fill: white; font-size: 18px; font-weight: bold; font-family: Arial;">
+                                    <textPath href="#curve-promo" startOffset="50%" text-anchor="middle">GIÁ ĐẶC BIỆT</textPath>
+                                </text>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <div class="promo-name">${p.name || 'TÊN SẢN PHẨM'}</div>
+                    
+                    <div class="promo-bottom">
+                        <div class="promo-col-thousands">
+                            <span class="promo-price-main">${promoParts.thousands}</span>
+                        </div>
+                        <div class="promo-col-hundreds">
+                            <span class="promo-price-dec">.${promoParts.hundreds}</span>
+                            <span class="promo-old-price">${formatPrice(p.price)}đ</span>
+                            <span class="promo-unit">/${p.unit}</span>
+                        </div>
+                        <div class="promo-col-image">
+                            ${p.imageUrl ? `<img src="${p.imageUrl}" class="promo-image" onerror="this.style.display='none'">` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="promo-footer">
+                        Áp dụng đến: ${dateStr || '...'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderA5Sheet(p) {
+            const promoParts = splitPrice(p.promoPrice);
+            const dateStr = formatDate(p.applyDate);
+
+            return `
+                <div class="a5-sheet">
+                    <div class="a5-header-wrapper">
+                                                <div class="a5-header">
+                            <!-- Tăng viewBox lên 50, hạ tọa độ Q xuống 8 và 42 -->
+                            <svg viewBox="0 0 280 50" style="width: 240px; height: 40px; overflow: visible;">
+                                <path id="curve-a5" d="M 5,42 Q 140,8 275,42" fill="transparent" />
+                                <text style="fill: white; font-size: 30px; font-weight: bold; font-family: Arial;">
+                                    <textPath href="#curve-a5" startOffset="50%" text-anchor="middle">GIÁ ĐẶC BIỆT</textPath>
+                                </text>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <div class="a5-name">${p.name || 'TÊN SẢN PHẨM'}</div>
+                    
+                    <div class="a5-price-section">
+                        <div class="a5-price-left">
+                            <span class="a5-price-main">${promoParts.thousands}</span>
+                        </div>
+                        <div class="a5-price-right">
+                            <span class="a5-price-dec">.${promoParts.hundreds}</span>
+                            <span class="a5-old-price">${formatPrice(p.price)}đ</span>
+                            <span class="a5-unit">/${p.unit}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="a5-image-area">
+                        ${p.imageUrl ? `<img src="${p.imageUrl}" onerror="this.style.display='none'">` : ''}
+                    </div>
+
+                    <div class="a5-footer">
+                        <div class="a5-date">
+                            Áp dụng đến: ${dateStr || '...'}
+                        </div>
+                        <div class="a5-barcode">
+                            ${p.barcode ? `<svg data-barcode="${p.barcode}"></svg><div class="barcode-text">${p.barcode}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function changePage(dir) {
+            const activeProducts = products.filter(p => p.checked);
+            const totalPages = Math.ceil(activeProducts.length / itemsPerPage) || 1;
+            currentPage += dir;
+            if (currentPage < 1) currentPage = 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            renderPreview();
+        }
+
+        // Xử lý paste ảnh & paste text vào bảng
+        document.getElementById('tableContainer').addEventListener('paste', function(e) {
+            const target = e.target;
+            if (target.tagName !== 'INPUT' || target.type !== 'text') return;
+            
+            const clipboardData = e.clipboardData || window.clipboardData;
+            
+            // 1. Xử lý Paste ảnh (Chỉ áp dụng cho tab A5)
+            const items = clipboardData.items;
+            if (items && currentMenu === 'a5Sheet') {
+                for (let index in items) {
+                    const item = items[index];
+                    if (item.kind === 'file' && item.type.startsWith('image/')) {
+                        e.preventDefault();
+                        
+                        if (pastedImageCount >= MAX_PASTED_IMAGES) {
+                            alert(`Bạn chỉ được phép paste tối đa ${MAX_PASTED_IMAGES} ảnh trực tiếp!`);
+                            return;
+                        }
+
+                        const blob = item.getAsFile();
+                        if ((blob.size / 1024) > MAX_IMAGE_SIZE_KB) {
+                            alert(`Ảnh quá lớn. Vui lòng chọn ảnh dưới ${MAX_IMAGE_SIZE_KB}KB!`);
+                            return;
+                        }
+
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const base64 = event.target.result;
+                            const tr = target.closest('tr');
+                            const rowIndex = parseInt(tr.dataset.index);
+                            
+                            products[rowIndex].imageUrl = base64;
+                            products[rowIndex].isPastedImage = true;
+                            pastedImageCount++;
+                            
+                            target.value = "Đã dán ảnh (Base64)";
+                            renderPreview();
+                        };
+                        reader.readAsDataURL(blob);
+                        return; // Dừng xử lý text nếu đã paste ảnh
+                    }
+                }
+            }
+
+            // 2. Xử lý Paste Text (Cột dữ liệu từ Excel)
+            const pastedText = clipboardData.getData('Text');
+            if (!pastedText.includes('\t') && !pastedText.includes('\n')) return; 
+            e.preventDefault(); 
+
+            const rows = pastedText.split(/\r\n|\n|\r/).filter(r => r.trim() !== '');
+            const tr = target.closest('tr');
+            const startRowIndex = parseInt(tr.dataset.index);
+            
+            let addedRows = 0;
+            const currentDataArray = (currentMenu === 'printList') ? printListData : products;
+
+            rows.forEach((rowStr, i) => {
+                const targetIndex = startRowIndex + i;
+                if (targetIndex >= currentDataArray.length) {
+                    if(currentMenu === 'printList') addNewPrintListItem();
+                    else products.push(initEmptyProduct());
+                    addedRows++;
+                }
+
+                const cols = rowStr.split('\t');
+                cols.forEach((colStr, j) => {
+                    const val = colStr.trim();
+                    const td = target.closest('td');
+                    const tdIndex = Array.from(tr.children).indexOf(td);
+                    const targetFieldIndex = tdIndex + j; 
+                    
+                    const itemToUpdate = currentDataArray[targetIndex];
+                    if(!itemToUpdate) return;
+
+                    if (currentMenu === 'printList') {
+                        // Logic map cột cho Danh sách in (dựa theo thứ tự cột HTML)
+                        if (targetFieldIndex === 1) itemToUpdate.filename = val;
+                        else if (targetFieldIndex === 3) itemToUpdate.barcode = val;
+                        else if (targetFieldIndex === 4) itemToUpdate.name = val;
+                        else if (targetFieldIndex === 5) itemToUpdate.price = parseInt(val) || 0;
+                        else if (targetFieldIndex === 6) itemToUpdate.promoPrice = parseInt(val) || 0;
+                        else if (targetFieldIndex === 7) itemToUpdate.unit = val;
+                    } else {
+                        if (targetFieldIndex === 1) itemToUpdate.name = val;
+                        else if (targetFieldIndex === 2) itemToUpdate.price = parseInt(val) || 0;
+                        else if (targetFieldIndex === 3) itemToUpdate.unit = val;
+                        else if (targetFieldIndex === 4) itemToUpdate.barcode = val;
+                        else if (targetFieldIndex === 5) itemToUpdate.quantity = parseInt(val) || 1;
+                        else if (currentMenu === 'promoTag' || currentMenu === 'a5Sheet') {
+                            if (targetFieldIndex === 6) itemToUpdate.promoPrice = parseInt(val) || 0;
+                            else if (targetFieldIndex === 8) itemToUpdate.imageUrl = val; 
+                        }
+                    }
+                });
+            });
+
+            renderTable();
+            if(currentMenu !== 'printList') renderPreview();
+            if (addedRows > 0 && currentMenu !== 'printList') addNewRow(); 
+        });
+
+        // ================= SCANNER (CAMERA) =================
+        function playBeep() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 800;
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+                setTimeout(() => oscillator.stop(), 150);
+            } catch(e) { console.log("Audio error", e); }
+        }
+
+        function openScanner() {
+            document.getElementById('scannerModal').classList.add('active');
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+            
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 150 } },
+                (decodedText, decodedResult) => {
+                    if (isScanningLocked) return;
+                    isScanningLocked = true;
+                    
+                    playBeep();
+                    scannedBarcodes.push(decodedText);
+                    updateScannedListUI();
+
+                    setTimeout(() => { isScanningLocked = false; }, 3000);
+                },
+                (errorMessage) => { }
+            ).catch(err => {
+                alert("Không thể mở Camera. Vui lòng kiểm tra quyền truy cập!");
+                closeScanner();
+            });
+        }
+
+        function closeScanner() {
+            document.getElementById('scannerModal').classList.remove('active');
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    isScanningLocked = false;
+                }).catch(err => console.log(err));
+            }
+        }
+
+        function updateScannedListUI() {
+            const list = document.getElementById('scannedList');
+            if (scannedBarcodes.length === 0) {
+                list.innerHTML = `<div style="text-align:center; color:#94a3b8; font-style:italic;">Chưa có mã nào được quét.</div>`;
+                return;
+            }
+            list.innerHTML = scannedBarcodes.map((code, i) => `
+                <div class="scanned-item">
+                    <span>${i+1}. <b>${code}</b></span>
+                </div>
+            `).reverse().join('');
+        }
+
+        function clearScannedList() {
+            if(confirm("Xóa toàn bộ danh sách mã đã quét trên màn hình?")) {
+                scannedBarcodes = [];
+                updateScannedListUI();
+            }
+        }
+
+        function exportCSV() {
+            if (scannedBarcodes.length === 0) return alert("Chưa có mã nào để lưu!");
+            let csvContent = "Mã vạch\n";
+            scannedBarcodes.forEach(code => csvContent += `${code}\n`);
+
+            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Danh_Sach_Ma_Quet_${new Date().getTime()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        async function saveScansToCloud() {
+            const filename = document.getElementById('scanFilename').value.trim();
+            if (!filename) return alert("Vui lòng nhập Tên đợt quét / Tên file!");
+            if (scannedBarcodes.length === 0) return alert("Chưa có mã vạch nào để lưu!");
+            if (WEB_APP_URL === "PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") return alert("Chưa cấu hình WEB_APP_URL trong code!");
+
+            const btn = document.querySelector('button[onclick="saveScansToCloud()"]');
+            const oldText = btn.innerHTML;
+            btn.innerHTML = "Đang lưu..."; btn.disabled = true;
+
+            try {
+                const res = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: "save_scans",
+                        secret: SECRET_KEY,
+                        filename: filename,
+                        barcodes: scannedBarcodes
+                    })
+                });
+                const json = await res.json();
+                alert(json.message);
+                if (json.status === 'success') {
+                    scannedBarcodes = [];
+                    updateScannedListUI();
+                    document.getElementById('scanFilename').value = '';
+                }
+            } catch (err) {
+                alert("Lỗi kết nối Cloud: " + err.toString());
+            } finally {
+                btn.innerHTML = oldText; btn.disabled = false;
+            }
+        }
+
+        // Khởi tạo
+        window.onload = function() {
+            addNewRow(); // Khởi tạo 1 dòng trống cho tab mặc định
+            fetchCloudProducts(); // Tự động tải danh mục SP từ Cloud để tra cứu ngầm
+            applyZoom();
+        };
+    </script>
+</body>
+</html>
